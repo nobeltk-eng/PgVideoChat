@@ -1,2 +1,6 @@
 **/target
 **/node_modules
+.env
+.svelte-kit
+Caddyfile
+*.tar.gz

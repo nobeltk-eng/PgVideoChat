@@ -1,6 +1,6 @@
 import { writable, get } from 'svelte/store';
-import type { DbConnection } from '../module_bindings';
-import type { Identity } from 'spacetimedb';
+import type { RelayConn } from './relay';
+import { identityHex } from './relay';
 import { mediaSettingsStore, type MediaSettings } from './mediaSettings';
 
 export const localVideoStream = writable<MediaStream | null>(null);
@@ -8,9 +8,8 @@ export const remoteVideoUrl = writable<string | null>(null);
 export const remoteTalking = writable<boolean>(false);
 
 type ActiveRuntime = {
-  conn: DbConnection;
+  conn: RelayConn;
   myHex: string;
-  peerId: Identity;
   peerHex: string;
   sessionIdStr: string;
   callType: 'Voice' | 'Video';
@@ -50,8 +49,8 @@ function validateCfg(cfg: MediaSettings): MediaSettings {
   return cfg;
 }
 
-function idHex(id: Identity) {
-  return id.toHexString();
+function idHex(id: any): string {
+  return identityHex(id);
 }
 
 function sessionIdOf(sess: any): string {
@@ -75,28 +74,31 @@ function callTypeOf(sess: any): 'Voice' | 'Video' {
   return t === 'video' ? 'Video' : 'Voice';
 }
 
-function shouldSwallowReducerError(e: any): boolean {
-  const msg = String(e?.message ?? e);
-  return msg.includes('Call session not found') || msg.includes('Call is not active');
+// Binary frame builders for media
+function buildBinaryAudioFrame(
+  header: object,
+  pcm16le: Uint8Array
+): ArrayBuffer {
+  const headerBytes = new TextEncoder().encode(JSON.stringify(header));
+  const buf = new Uint8Array(1 + 4 + headerBytes.length + pcm16le.length);
+  buf[0] = 0x01; // TAG_AUDIO
+  new DataView(buf.buffer).setUint32(1, headerBytes.length, false);
+  buf.set(headerBytes, 5);
+  buf.set(pcm16le, 5 + headerBytes.length);
+  return buf.buffer;
 }
 
-function safeSendReducer(conn: DbConnection, snake: string, camel: string, args: any) {
-  const reducers: any = (conn as any).reducers;
-  const fn = reducers?.[snake] ?? reducers?.[camel];
-  if (!fn) return;
-
-  try {
-    const res = fn(args);
-    if (res && typeof (res as any).then === 'function') {
-      (res as Promise<any>).catch((e) => {
-        if (shouldSwallowReducerError(e)) return;
-        console.error(`[callRuntime] reducer failed: ${snake}/${camel}`, e);
-      });
-    }
-  } catch (e) {
-    if (shouldSwallowReducerError(e)) return;
-    console.error(`[callRuntime] reducer failed: ${snake}/${camel}`, e);
-  }
+function buildBinaryVideoFrame(
+  header: object,
+  jpeg: Uint8Array
+): ArrayBuffer {
+  const headerBytes = new TextEncoder().encode(JSON.stringify(header));
+  const buf = new Uint8Array(1 + 4 + headerBytes.length + jpeg.length);
+  buf[0] = 0x02; // TAG_VIDEO
+  new DataView(buf.buffer).setUint32(1, headerBytes.length, false);
+  buf.set(headerBytes, 5);
+  buf.set(jpeg, 5 + headerBytes.length);
+  return buf.buffer;
 }
 
 function asUint8Array(val: any): Uint8Array | null {
@@ -168,12 +170,15 @@ function resampleLinear(input: Float32Array, inputRate: number, outputRate: numb
 
 function scheduleAudio(audioCtx: AudioContext, nextPlayTime: number, pcm: Float32Array, sampleRate: number): number {
   const buf = audioCtx.createBuffer(1, pcm.length, sampleRate);
-  buf.copyToChannel(pcm, 0);
+  buf.copyToChannel(pcm as unknown as Float32Array<ArrayBuffer>, 0);
   const src = audioCtx.createBufferSource();
   src.buffer = buf;
   src.connect(audioCtx.destination);
 
-  const startAt = Math.max(nextPlayTime, audioCtx.currentTime + 0.02);
+  const now = audioCtx.currentTime;
+  // If audio buffer drifted too far ahead, reset to stay in sync with video
+  const clamped = nextPlayTime > now + 0.15 ? now + 0.02 : nextPlayTime;
+  const startAt = Math.max(clamped, now + 0.02);
   src.start(startAt);
   return startAt + pcm.length / sampleRate;
 }
@@ -231,15 +236,17 @@ async function startOrRestartVideo(rt: ActiveRuntime, session: any) {
     const sessionId = session.session_id ?? session.sessionId;
     const seq = rt.sendSeqVideo++;
 
-    safeSendReducer(rt.conn, 'send_video_frame', 'sendVideoFrame', {
-      session_id: sessionId,
-      sessionId,
-      to: rt.peerId,
-      seq,
-      width: w,
-      height: h,
-      jpeg: bytes
-    });
+    const frame = buildBinaryVideoFrame(
+      {
+        session_id: String(sessionId),
+        to: rt.peerHex,
+        seq,
+        width: w,
+        height: h,
+      },
+      bytes
+    );
+    rt.conn.sendBinaryFrame(frame);
   }, intervalMs);
 
   rt.stopFns.push(() => {
@@ -250,7 +257,7 @@ async function startOrRestartVideo(rt: ActiveRuntime, session: any) {
   });
 }
 
-export async function startCallRuntime(session: any, conn: DbConnection, myId: Identity) {
+export async function startCallRuntime(session: any, conn: RelayConn, myId: any) {
   const cfg = get(mediaSettingsStore);
   if (!cfg) throw new Error('Cannot start call: media_settings singleton (id=1) not loaded');
   validateCfg(cfg);
@@ -263,8 +270,8 @@ export async function startCallRuntime(session: any, conn: DbConnection, myId: I
 
   const myHex = idHex(myId);
   const callerHex = idHex(session.caller);
-  const peerId = callerHex === myHex ? session.callee : session.caller;
-  const peerHex = idHex(peerId);
+  const peerIdentity = callerHex === myHex ? session.callee : session.caller;
+  const peerHex = idHex(peerIdentity);
 
   const callType = callTypeOf(session);
 
@@ -272,7 +279,6 @@ export async function startCallRuntime(session: any, conn: DbConnection, myId: I
   const rt: ActiveRuntime = {
     conn,
     myHex,
-    peerId,
     peerHex,
     sessionIdStr,
     callType,
@@ -352,20 +358,18 @@ export async function startCallRuntime(session: any, conn: DbConnection, myId: I
       const sessionId = session.session_id ?? session.sessionId;
       const seq = runtime.sendSeqAudio++;
 
-      safeSendReducer(runtime.conn, 'send_audio_frame', 'sendAudioFrame', {
-        session_id: sessionId,
-        sessionId,
-        to: runtime.peerId,
-        seq,
-        sample_rate: outRate,
-        sampleRate: outRate,
-        channels: 1,
-        rms,
-        pcm16le: bytes,
-        pcm16Le: bytes,
-        pcm16_le: bytes,
-        pcm_16le: bytes
-      });
+      const frame = buildBinaryAudioFrame(
+        {
+          session_id: String(sessionId),
+          to: runtime.peerHex,
+          seq,
+          sample_rate: outRate,
+          channels: 1,
+          rms,
+        },
+        bytes
+      );
+      runtime.conn.sendBinaryFrame(frame);
     }
   };
 
@@ -448,7 +452,7 @@ export function handleVideoEvent(row: any) {
   const jpeg = getBytes(row, ['jpeg']);
   if (!jpeg) return;
 
-  const blob = new Blob([jpeg], { type: 'image/jpeg' });
+  const blob = new Blob([jpeg as unknown as BlobPart], { type: 'image/jpeg' });
   const url = URL.createObjectURL(blob);
 
   if (runtime.lastRemoteUrl) URL.revokeObjectURL(runtime.lastRemoteUrl);

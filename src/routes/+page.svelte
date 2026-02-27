@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import {
-    connectStdb,
+    connectRelay,
     isConnected,
     connectionError,
     actionError,
@@ -20,7 +20,7 @@
     shortHex,
     identityHex,
     connStore
-  } from '$lib/stdb';
+  } from '$lib/relay';
   import { startCallRuntime, stopCallRuntime, localVideoStream, remoteVideoUrl, remoteTalking } from '$lib/callRuntime';
 
   let messageText = '';
@@ -222,7 +222,7 @@
   }
 
   onMount(() => {
-    connectStdb();
+    connectRelay();
     const onWindowClick = () => closeMenu();
     window.addEventListener('click', onWindowClick);
     return () => window.removeEventListener('click', onWindowClick);
